@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>タクティクスじゃんけん v0.1.18</title>
+<title>タクティクスじゃんけん v0.1.19</title>
 <style>
 :root{color-scheme:dark;--bg:#0b1020;--panel:#17223b;--panel2:#1d2b49;--line:#354667;--ink:#f3f7ff;--muted:#b5c3df;--gold:#f7c96f;--blue:#74b8ff;--red:#ff8b8d;--green:#72d6ad;--purple:#c7a1ff;--shadow:0 12px 40px #02081770}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:"Segoe UI","Yu Gothic UI","Meiryo",sans-serif;background:radial-gradient(ellipse at 50% -10%,#2b3f75 0,transparent 48%),radial-gradient(ellipse at 100% 65%,#282255 0,transparent 40%),#0b1020;color:var(--ink);line-height:1.55}
@@ -252,7 +252,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 <body><main id="app" class="wrap"></main>
 <script>
 'use strict';
-const VERSION='0.1.18';
+const VERSION='0.1.19';
 const HANDS=[{label:'グー',emoji:'✊'},{label:'チョキ',emoji:'✌️'},{label:'パー',emoji:'✋'}];
 const RULES=[
  {id:'normal',name:'通常バトル',short:'通常',desc:'すべての数字をそのまま掛け算します。'},
@@ -361,7 +361,7 @@ function home(){let hpOpts=[100,200,300,400].map(v=>`<button class="pill ${state
 function practiceSettings(){
  const hpOpts=[100,200,300,400].map(v=>`<button class="pill ${state.practiceHp===v?'active':''}" data-practice-hp="${v}" aria-pressed="${state.practiceHp===v}">${v} HP</button>`).join('');
  const cpuOpts=[['easy','やさしい','気軽に練習'],['normal','ふつう','配置と手を考える'],['hard','つよい','読み合いを重視']].map(([id,name,desc])=>`<button class="practice-difficulty ${state.cpuDifficulty===id?'active':''}" data-cpu-difficulty="${id}" aria-pressed="${state.cpuDifficulty===id}"><strong>${name}</strong><span>${desc}</span></button>`).join('');
- return `<section class="panel practice-settings"><div class="flex" style="justify-content:space-between;align-items:center"><div><div class="eyebrow">SOLO PRACTICE</div><h1 class="practice-title">🤖 一人で練習</h1></div><button class="btn soft" data-action="home">← トップへ戻る</button></div><p>CPUと1対1で練習できます。数字の配置やじゃんけんの駆け引きは対人戦と同じです。</p><div class="practice-config"><div class="stack"><label class="field">自分の名前<input class="txt" maxlength="16" placeholder="プレイヤー1" data-practice-name value="${esc(state.practiceName)}" autocomplete="off"></label><div><div class="label" style="margin-bottom:9px">各手の初期HP</div><div class="pill-row">${hpOpts}</div></div><div><div class="label" style="margin-bottom:9px">対戦ルール</div><div class="pill-row"><button class="pill ${state.practiceRuleMode==='normal'?'active':''}" data-practice-rule="normal" aria-pressed="${state.practiceRuleMode==='normal'}">通常ルールのみ</button><button class="pill ${state.practiceRuleMode==='special'?'active':''}" data-practice-rule="special" aria-pressed="${state.practiceRuleMode==='special'}">特殊ルールあり</button></div></div></div><div class="stack"><div><div class="label" style="margin-bottom:9px">CPUの強さ</div><div class="practice-difficulties">${cpuOpts}</div></div><div class="callout">CPUも40枚の共通デッキから9枚を受け取り、交換と配置を行います。相手の魔法陣・手の選択は「ポン！」まで非公開です。</div></div></div><button class="btn gold large wide" style="margin-top:20px" data-action="practice-start">⚔ CPUと練習スタート</button></section>`;
+ return `<section class="panel practice-settings"><div class="flex" style="justify-content:space-between;align-items:center"><div><div class="eyebrow">SOLO PRACTICE</div><h1 class="practice-title">🤖 一人で練習</h1></div><button class="btn soft" data-action="home">← トップへ戻る</button></div><p>CPUと1対1で練習できます。数字の配置やじゃんけんの駆け引きは対人戦と同じです。</p><div class="practice-config"><div class="stack"><label class="field">自分の名前<input class="txt" maxlength="16" placeholder="プレイヤー1" data-practice-name value="${esc(state.practiceName)}" autocomplete="off"></label><div><div class="label" style="margin-bottom:9px">各手の初期HP</div><div class="pill-row">${hpOpts}</div></div><div><div class="label" style="margin-bottom:9px">対戦ルール</div><div class="pill-row"><button class="pill ${state.practiceRuleMode==='normal'?'active':''}" data-practice-rule="normal" aria-pressed="${state.practiceRuleMode==='normal'}">通常ルールのみ</button><button class="pill ${state.practiceRuleMode==='special'?'active':''}" data-practice-rule="special" aria-pressed="${state.practiceRuleMode==='special'}">特殊ルールあり</button></div></div></div><div class="stack"><div><div class="label" style="margin-bottom:9px">CPUの強さ</div><div class="practice-difficulties">${cpuOpts}</div></div></div></div><button class="btn gold large wide" style="margin-top:20px" data-action="practice-start">⚔ CPUと練習スタート</button></section>`;
 }
 function pStatus(){return '';}
 function hpBars(p){return `<div class="player-hps">${HANDS.map((h,i)=>{let hp=p.hp[i],pc=Math.max(0,hp/state.hpMax*100);return `<div class="hpbox ${hp===0?'dead':hp/state.hpMax<=.3?'low':''}"><div class="hp-top"><span>${h.emoji} ${h.label}</span><b>${hp}/${state.hpMax}</b></div><div class="hp-track"><div class="hp-fill" style="width:${pc}%"></div></div></div>`;}).join('')}</div>`;}
