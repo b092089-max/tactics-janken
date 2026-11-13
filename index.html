@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>タクティクスじゃんけん v0.1.15</title>
+<title>タクティクスじゃんけん v0.1.17</title>
 <style>
 :root{color-scheme:dark;--bg:#0b1020;--panel:#17223b;--panel2:#1d2b49;--line:#354667;--ink:#f3f7ff;--muted:#b5c3df;--gold:#f7c96f;--blue:#74b8ff;--red:#ff8b8d;--green:#72d6ad;--purple:#c7a1ff;--shadow:0 12px 40px #02081770}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:"Segoe UI","Yu Gothic UI","Meiryo",sans-serif;background:radial-gradient(ellipse at 50% -10%,#2b3f75 0,transparent 48%),radial-gradient(ellipse at 100% 65%,#282255 0,transparent 40%),#0b1020;color:var(--ink);line-height:1.55}
@@ -242,7 +242,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 <body><main id="app" class="wrap"></main>
 <script>
 'use strict';
-const VERSION='0.1.16';
+const VERSION='0.1.17';
 const HANDS=[{label:'グー',emoji:'✊'},{label:'チョキ',emoji:'✌️'},{label:'パー',emoji:'✋'}];
 const RULES=[
  {id:'normal',name:'通常バトル',short:'通常',desc:'すべての数字をそのまま掛け算します。'},
@@ -296,8 +296,7 @@ function svgPass(){return `<svg viewBox="0 0 300 150" role="img" aria-label="自
 function home(){let hpOpts=[100,200,300,400].map(v=>`<button class="pill ${state.hpMax===v?'active':''}" data-hp="${v}">${v} HP</button>`).join(''); let nOpts=[2,3,4].map(v=>`<button class="pill ${state.n===v?'active':''}" data-count="${v}">${v}人</button>`).join('');let fields=Array.from({length:state.n},(_,i)=>`<label class="field">プレイヤー${i+1}の名前 <input class="txt" data-player-name="${i}" maxlength="16" placeholder="プレイヤー${i+1}" value="${esc(state.names[i])}" autocomplete="off"></label>`).join('');return `
 <section class="hero"><div class="hero-copy"><div class="eyebrow">TACTICS JANKEN</div><h1>数字を配置して、<br><span>じゃんけんで勝負！</span></h1><p>9枚の数字で、グー・チョキ・パーの攻撃力と防御力をつくろう。<br class="hero-desktop-break">3つの手を使い切り、最後まで生き残れ！</p></div><div class="hero-visual" aria-hidden="true"><div class="hero-mini-hands"><span>✊</span><span>✌️</span><span>✋</span></div><div class="hero-mini-grid">${[8,2,5,4,9,1,7,3,6].map(n=>`<span>${n}</span>`).join('')}</div><div class="hero-mini-caption">数字の配置 × 読み合い</div></div></section>
 <section class="panel section"><div class="section-title"><span class="dot"></span><h2 style="margin:0">対戦をはじめる</h2></div><div class="grid2"><div class="stack"><div><div class="label" style="margin-bottom:9px">対戦人数</div><div class="pill-row">${nOpts}</div></div><div><div class="label" style="margin-bottom:9px">各手の初期HP</div><div class="pill-row">${hpOpts}</div><p class="note" style="margin:7px 0 0">100はクイック対戦、200は標準、300・400は長期戦におすすめ。</p></div><div><div class="label" style="margin-bottom:9px">対戦ルール</div><div class="pill-row rule-mode-row"><button type="button" class="pill ${state.ruleMode==='normal'?'active':''}" data-rule-mode="normal" aria-pressed="${state.ruleMode==='normal'}">通常ルールのみ</button><button type="button" class="pill ${state.ruleMode==='special'?'active':''}" data-rule-mode="special" aria-pressed="${state.ruleMode==='special'}">特殊ルールあり</button></div><p class="note" style="margin:7px 0 0">${state.ruleMode==='normal'?'毎ラウンド「通常バトル」のみで対戦します。':'毎ラウンド、通常を含む6種類からランダムで選ばれます。'}</p></div><div class="callout">🔒 手札・配置・じゃんけんの選択は、本人だけが確認する方式です。プレイヤー交代のたびに画面を隠します。</div></div><div class="stack"><div><div class="label" style="margin-bottom:9px">プレイヤー名</div><div class="name-grid">${fields}</div></div><button class="btn gold large wide" data-action="start">⚔ ${state.n}人で対戦スタート</button><button class="btn primary wide" data-action="tutorial">📘 はじめての方へ：チュートリアル</button><div class="note">CPUとの一人用対戦は、対人戦のルール確定後に追加します。</div></div></div></section>
-<section class="section"><div class="section-title"><span class="dot"></span><h2 style="margin:0">画像でわかる基本ルール</h2></div><div class="rulegrid"><article class="rule-card"><div class="rule-art">${svgBoard()}</div><div class="rule-body"><h3>① 9枚を並べる</h3><p>縦3枚の掛け算が攻撃力、横3枚の掛け算が防御力。毎ラウンド配り直して配置します。</p></div></article><article class="rule-card"><div class="rule-art">${svgRps()}</div><div class="rule-body"><h3>② 3つの手で勝負</h3><p>グー・チョキ・パーを1回ずつ出します。負けはダメージ、あいこは双方ダメージ。HPは引き継がれます。</p></div></article><article class="rule-card"><div class="rule-art">${svgPass()}</div><div class="rule-body"><h3>③ 1人ずつ配置と選択</h3><p>配置したらそのまま第1戦の手を選択し、終わってから次の人に渡します。全員の選択が終わると大きな「ポン！」ボタンで一斉公開します。</p></div></article></div></section>
-<section class="panel section"><h2>特殊バトル（選択制・全6種類）</h2><p class="note">「特殊ルールあり」で始めると、毎ラウンド全6種類から1つ選ばれます。「通常ルールのみ」の場合は特殊効果が発生しません。</p><div class="grid3">${RULES.map(r=>`<div class="player-card"><strong style="color:#f7d6a0">${r.name}</strong><p class="note" style="margin:7px 0 0">${r.desc}</p></div>`).join('')}</div><p class="note" style="margin:14px 0 0">0は偶数。防御半減は小数点以下切り捨て。全ての攻撃のうち、受けるダメージは最大の1撃だけです。</p></section>`;}
+`;}
 function pStatus(){return '';}
 function hpBars(p){return `<div class="player-hps">${HANDS.map((h,i)=>{let hp=p.hp[i],pc=Math.max(0,hp/state.hpMax*100);return `<div class="hpbox ${hp===0?'dead':hp/state.hpMax<=.3?'low':''}"><div class="hp-top"><span>${h.emoji} ${h.label}</span><b>${hp}/${state.hpMax}</b></div><div class="hp-track"><div class="hp-fill" style="width:${pc}%"></div></div></div>`;}).join('')}</div>`;}
 function miniHp(p,i){let hp=p.hp[i],pc=Math.max(0,hp/state.hpMax*100);return `<div class="mini-hp ${hp/state.hpMax<=.3?'low':''}"><div class="mini-hp-value">HP ${hp}/${state.hpMax}</div><div class="mini-hp-track"><div class="mini-hp-fill" style="width:${pc}%"></div></div></div>`;}
