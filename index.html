@@ -221,12 +221,28 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .deck-strength-compact-title{font-size:.86rem;font-weight:800;color:#d5e3f9}
 .deck-strength-compact-number{font-size:1.45rem;line-height:1.15;color:#ffe2a2;font-weight:950;font-variant-numeric:tabular-nums}
 @media(max-width:600px){.deck-strength-compact{padding:7px 10px}.deck-strength-compact-title{font-size:.8rem}.deck-strength-compact-number{font-size:1.26rem}}
+
+/* Strength gauge: compact enough for the card-exchange panel at desktop and mobile widths. */
+.deck-strength-meter{margin:0 0 12px;padding:11px 12px 8px;background:#1b304c;border:1px solid #4e6c93;border-radius:11px;--strength-color:#76cda1}
+.deck-strength-meter-row{display:flex;align-items:center;gap:10px;min-width:0;margin-bottom:8px}
+.deck-strength-meter-row .deck-strength-compact-title{flex:1;min-width:0;line-height:1.35}
+.deck-strength-meter-row .deck-strength-compact-number{font-variant-numeric:tabular-nums}
+.deck-strength-rating{font-size:.82rem;font-weight:850;text-align:center;border-radius:100px;padding:5px 9px;color:var(--strength-color);background:#101e35;border:1px solid currentColor;white-space:nowrap}
+.deck-strength-track{height:16px;background:#101a30;border:1px solid #586987;border-radius:999px;overflow:hidden}
+.deck-strength-fill{height:100%;background:var(--strength-color);border-radius:999px;transition:width .25s ease}
+.deck-strength-scale{display:flex;justify-content:space-between;color:#adc2dc;font-size:.69rem;margin-top:4px}
+.strength-tier-0{--strength-color:#f27b86}
+.strength-tier-1{--strength-color:#82bff5}
+.strength-tier-2{--strength-color:#83d3a3}
+.strength-tier-3{--strength-color:#f2c35a}
+.strength-tier-4{--strength-color:#c5a1f7}
+@media(max-width:600px){.deck-strength-meter{padding:9px 9px 7px}.deck-strength-meter-row{gap:7px}.deck-strength-meter-row .deck-strength-compact-title{font-size:.77rem}.deck-strength-meter-row .deck-strength-compact-number{font-size:1.28rem}.deck-strength-rating{font-size:.7rem;padding:4px 6px}.deck-strength-track{height:14px}}
 </style>
 </head>
 <body><main id="app" class="wrap"></main>
 <script>
 'use strict';
-const VERSION='0.1.15';
+const VERSION='0.1.16';
 const HANDS=[{label:'グー',emoji:'✊'},{label:'チョキ',emoji:'✌️'},{label:'パー',emoji:'✋'}];
 const RULES=[
  {id:'normal',name:'通常バトル',short:'通常',desc:'すべての数字をそのまま掛け算します。'},
@@ -296,11 +312,31 @@ function expectedTripleProduct(cards){
  }
  return sum/count;
 }
+// Scale estimated from random nine-card deals from the shared 0-9 x4 deck.
+// These anchors represent approximate percentile ranks rather than a theoretical maximum.
+const STRENGTH_PERCENTILES={
+ normal:[[0,0],[22,5],[31,10],[44,20],[58,33],[78,50],[103,67],[129,80],[162,90],[192,95],[256,99],[450,100]],
+ zero:[[0,0],[60,5],[74,10],[96,20],[120,33],[152,50],[188,67],[228,80],[275,90],[316,95],[401,99],[650,100]]
+};
+function strengthPercentile(value,zeroAwakening){
+ const points=zeroAwakening?STRENGTH_PERCENTILES.zero:STRENGTH_PERCENTILES.normal;
+ for(let i=1;i<points.length;i++){
+  if(value<=points[i][0]){
+   const [x0,y0]=points[i-1],[x1,y1]=points[i];
+   return Math.max(0,Math.min(100,Math.round(y0+(y1-y0)*(value-x0)/(x1-x0))));
+  }
+ }
+ return 100;
+}
 function cardStrengthHtml(board,rule){
  const zeroAwakening=rule?.id==='zero';
  const factorCards=board.map(n=>zeroAwakening&&n===0?10:n);
  const triple=Math.round(expectedTripleProduct(factorCards));
- return `<div class="deck-strength-compact" aria-label="9枚の数字の強さ ${triple}"><span class="deck-strength-compact-title">📊 9枚の数字の強さ</span><strong class="deck-strength-compact-number">${triple}</strong></div>`;
+ const percentile=strengthPercentile(triple,zeroAwakening);
+ const tier=percentile<15?0:percentile<35?1:percentile<65?2:percentile<85?3:4;
+ const names=['とても弱い','やや弱い','ふつう','やや強い','とても強い'];
+ const label=names[tier];
+ return `<div class="deck-strength-meter strength-tier-${tier}" role="group" aria-label="9枚の数字の強さ ${triple}、評価 ${label}"><div class="deck-strength-meter-row"><span class="deck-strength-compact-title">📊 9枚の数字の強さ</span><strong class="deck-strength-compact-number">${triple}</strong><span class="deck-strength-rating">${label}</span></div><div class="deck-strength-track" role="img" aria-label="相対的な強さ ${percentile}パーセント"><div class="deck-strength-fill" style="width:${percentile}%"></div></div><div class="deck-strength-scale" aria-hidden="true"><span>弱い</span><span>標準</span><span>強い</span></div></div>`;
 }
 function boardHtml(board,opts={}){let s=stat(board,opts.rule||state.rule);let actionable=opts.interactive||false;return `<div class="boardbox"><div class="battleboard"><div></div>${HANDS.map(h=>`<div class="boardlabel atk"><span class="icon">${h.emoji}</span><span>攻撃↓</span></div>`).join('')}${board.map((n,i)=>{let lbl=i%3===0?`<div class="boardlabel def"><span class="icon">${HANDS[Math.floor(i/3)].emoji}</span><span>防御→</span></div>`:'';let selected=opts.selected===i?' selected':'';let redraw=opts.drawSelected?.includes(i)?' redraw':'';let css=`${n%2===0?'even':''}${n===0?' zero':''}${selected}${redraw}`;return lbl+`<button ${actionable?'': 'disabled'} class="cell ${actionable?'clickable':''} ${css}" data-slot="${i}" aria-label="${Math.floor(i/3)+1}行${i%3+1}列 ${n}${opts.drawSelected?.includes(i)?'交換指定':''}">${n}<span class="corner">${n===0?'✦':n%2===0?'偶':'奇'}</span></button>`;}).join('')}</div><div class="line"></div><div class="statgrid">${HANDS.map((h,i)=>`<div class="stat"><div class="hand">${h.emoji}</div><strong>${h.label}</strong>${opts.player?miniHp(opts.player,i):''}<div class="pair"><span>攻撃 ${s.atk[i]}</span><span>防御 ${s.def[i]}</span></div></div>`).join('')}</div></div>`;}
 function handoffTo(id,stage){state.currentId=id;state.nextStage=stage;state.screen='handoff';state.selection=null;state.handSelection=null;state.predictionDraft={};state.selectedDraw=[];state.mode='move';render();}
