@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>タクティクスじゃんけん v0.1.19</title>
+<title>タクティクスじゃんけん v0.1.20</title>
 <style>
 :root{color-scheme:dark;--bg:#0b1020;--panel:#17223b;--panel2:#1d2b49;--line:#354667;--ink:#f3f7ff;--muted:#b5c3df;--gold:#f7c96f;--blue:#74b8ff;--red:#ff8b8d;--green:#72d6ad;--purple:#c7a1ff;--shadow:0 12px 40px #02081770}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:"Segoe UI","Yu Gothic UI","Meiryo",sans-serif;background:radial-gradient(ellipse at 50% -10%,#2b3f75 0,transparent 48%),radial-gradient(ellipse at 100% 65%,#282255 0,transparent 40%),#0b1020;color:var(--ink);line-height:1.55}
@@ -247,12 +247,23 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .practice-difficulty.active{border-color:#f5d48c;background:#493d30;color:#fff0c0}
 .practice-difficulty strong{font-size:1.03rem}.practice-difficulty span{font-size:.73rem;line-height:1.3}
 @media(max-width:650px){.practice-config{grid-template-columns:1fr;gap:17px}.practice-difficulty{min-height:78px}}
+
+/* v0.1.20: subtle strategy BGM controls */
+.wrap:has(.music-toggle){padding-top:66px}
+.music-config{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:3px}
+.music-config .label{margin:0}
+.music-choice{display:flex;gap:6px;flex-wrap:wrap}
+.music-choice .pill{font-size:.89rem;padding:8px 14px;min-width:75px;min-height:40px}
+.music-toggle{position:fixed;z-index:40;top:12px;right:13px;min-height:40px;display:inline-flex;align-items:center;gap:5px;padding:7px 12px;background:#152640ed;border:1px solid #52688b;border-radius:999px;color:#e0eaff;font-size:.83rem;font-weight:800;box-shadow:0 3px 14px #0006;backdrop-filter:blur(7px)}
+.music-toggle:hover{background:#273d61}
+.music-toggle[aria-pressed="true"]{border-color:#8b9bc8;color:#fff0c0}
+@media(max-width:600px){.music-toggle{top:7px;right:7px;padding:7px 10px;font-size:.79rem}}
 </style>
 </head>
 <body><main id="app" class="wrap"></main>
 <script>
 'use strict';
-const VERSION='0.1.19';
+const VERSION='0.1.20';
 const HANDS=[{label:'グー',emoji:'✊'},{label:'チョキ',emoji:'✌️'},{label:'パー',emoji:'✋'}];
 const RULES=[
  {id:'normal',name:'通常バトル',short:'通常',desc:'すべての数字をそのまま掛け算します。'},
@@ -264,7 +275,7 @@ const RULES=[
 ];
 const TUTORIAL_TITLES=['勝負の目的','数字の配置を体験','攻撃と防御を配分する','3つの手を使い分ける','じゃんけんとHP','相手の残り手を読む','あえて負ける作戦','特殊ルールとカード交換','秘密の画面で交代'];
 const app=document.querySelector('#app');
-const state={screen:'home',n:2,ruleMode:'normal',hpMax:100,names:['','','',''],players:[],round:0,rule:null,drawPile:[],setupIds:[],setupIndex:0,choiceIds:[],choiceIndex:0,firstClashPending:false,currentId:0,nextStage:'setup',clash:0,clashCap:3,selection:null,selectedDraw:[],mode:'move',handSelection:null,predictionDraft:{},soundOn:false,revealAnimating:false,revealTimeout:null,result:null,lastStage:'',tutorialStep:0,tutorialBoard:[9,2,3,4,5,6,7,8,1],tutorialSelection:null,tutorialTactic:null,handDecision:null,practice:false,practiceName:'',practiceHp:100,practiceRuleMode:'normal',cpuDifficulty:'normal'};
+const state={screen:'home',n:2,ruleMode:'normal',hpMax:100,names:['','','',''],players:[],round:0,rule:null,drawPile:[],setupIds:[],setupIndex:0,choiceIds:[],choiceIndex:0,firstClashPending:false,currentId:0,nextStage:'setup',clash:0,clashCap:3,selection:null,selectedDraw:[],mode:'move',handSelection:null,predictionDraft:{},soundOn:false,bgmOn:false,revealAnimating:false,revealTimeout:null,result:null,lastStage:'',tutorialStep:0,tutorialBoard:[9,2,3,4,5,6,7,8,1],tutorialSelection:null,tutorialTactic:null,handDecision:null,practice:false,practiceName:'',practiceHp:100,practiceRuleMode:'normal',cpuDifficulty:'normal'};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const R=()=>Math.random();
 function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -349,19 +360,68 @@ function resolveRemainingHands(){
  state.screen='hand-decision';render();window.scrollTo(0,0);
  return true;
 }
+
+// Original, procedural strategy BGM. All tones are generated locally by Web Audio; no remote assets.
+const strategyMusic={ctx:null,timer:null,nextTime:0,step:0,master:null,playing:false};
+function isPlanningScreen(){return state.screen==='setup'||state.screen==='choose';}
+function musicControl(){return `<button class="music-toggle" type="button" data-action="bgm-toggle" aria-label="BGMを${state.bgmOn?'オフ':'オン'}にする" aria-pressed="${state.bgmOn}">${state.bgmOn?'♫ BGM オン':'♪ BGM オフ'}</button>`;}
+function musicConfig(){return `<div class="music-config"><div class="label">🎵 BGM</div><div class="music-choice"><button type="button" class="pill ${state.bgmOn?'active':''}" aria-pressed="${state.bgmOn}" data-action="bgm-on">オン</button><button type="button" class="pill ${!state.bgmOn?'active':''}" aria-pressed="${!state.bgmOn}" data-action="bgm-off">オフ</button></div><span class="note">配置・手の選択中に流れます</span></div>`;}
+function musicTone(freq,when,duration,volume,kind='sine'){
+ const m=strategyMusic,c=m.ctx;if(!c||!m.master)return;
+ const osc=c.createOscillator(),gain=c.createGain(),filter=c.createBiquadFilter();
+ osc.type=kind;osc.frequency.setValueAtTime(freq,when);
+ filter.type='lowpass';filter.frequency.setValueAtTime(kind==='triangle'?1100:1700,when);filter.Q.value=.55;
+ const attack=kind==='triangle'?.035:.07,release=.18;
+ gain.gain.setValueAtTime(.00001,when);
+ gain.gain.linearRampToValueAtTime(volume,when+attack);
+ gain.gain.setValueAtTime(volume,Math.max(when+attack,when+duration-release));
+ gain.gain.exponentialRampToValueAtTime(.00001,when+duration);
+ osc.connect(filter);filter.connect(gain);gain.connect(m.master);
+ osc.start(when);osc.stop(when+duration+.025);
+}
+function musicTick(){
+ const m=strategyMusic;if(!m.ctx||!m.playing)return;
+ const c=m.ctx,stepSeconds=60/78/2;
+ // Four repeating eight-step phrases: understated pentatonic motif with alternating minor-seven harmonies.
+ const bass=[146.83,130.81,164.81,130.81]; // D3 C3 E3 C3
+ const motifs=[[293.66,null,349.23,440,null,349.23,293.66,null],[261.63,null,329.63,392,null,329.63,261.63,null],[329.63,null,392,493.88,null,392,329.63,null],[261.63,null,293.66,392,null,293.66,261.63,null]];
+ while(m.nextTime<c.currentTime+.18){
+  const i=m.step%32,measure=Math.floor(i/8),beat=i%8;
+  if(beat===0){musicTone(bass[measure],m.nextTime,2.6,.085,'sine');musicTone(bass[measure]*1.5,m.nextTime,2.1,.021,'sine');}
+  if(beat===4)musicTone(bass[measure],m.nextTime,1.25,.042,'sine');
+  const note=motifs[measure][beat];if(note)musicTone(note,m.nextTime,beat===3?1.0:.65,.029,beat===3?'triangle':'sine');
+  m.step++;m.nextTime+=stepSeconds;
+ }
+}
+function stopStrategyBgm(){
+ const m=strategyMusic;if(m.timer!==null){clearInterval(m.timer);m.timer=null;}
+ if(!m.playing)return;m.playing=false;
+ if(m.master&&m.ctx){const now=m.ctx.currentTime;m.master.gain.cancelScheduledValues(now);m.master.gain.setTargetAtTime(.00001,now,.055);}
+}
+function syncStrategyBgm(){
+ const m=strategyMusic;
+ if(!state.bgmOn||!isPlanningScreen()||document.hidden){stopStrategyBgm();return;}
+ try{
+  if(!m.ctx){const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;m.ctx=new Audio();m.master=m.ctx.createGain();m.master.gain.value=.00001;m.master.connect(m.ctx.destination);}
+  if(m.ctx.state==='suspended')m.ctx.resume().catch(()=>{});
+  if(!m.playing){m.playing=true;m.step=0;m.nextTime=m.ctx.currentTime+.12;const now=m.ctx.currentTime;m.master.gain.cancelScheduledValues(now);m.master.gain.setValueAtTime(.00001,now);m.master.gain.setTargetAtTime(.42,now,.28);m.timer=setInterval(musicTick,70);musicTick();}
+ }catch(_e){stopStrategyBgm();}
+}
+document.addEventListener('visibilitychange',syncStrategyBgm);
+
 function header(){return `<div class="topline"><div class="brand"><div class="brandmark">✦</div><span>タクティクスじゃんけん</span></div><span class="version">v${VERSION}</span></div>`;}
-function render(){let body='';if(state.screen==='home')body=home();if(state.screen==='practice-settings')body=practiceSettings();if(state.screen==='tutorial')body=tutorial();if(state.screen==='handoff')body=handoff();if(state.screen==='ready')body=ready();if(state.screen==='setup')body=setup();if(state.screen==='choose')body=choose();if(state.screen==='auto-janken')body=autoJankenScreen();if(state.screen==='janken')body=jankenScreen();if(state.screen==='result')body=resultScreen();if(state.screen==='hand-decision')body=handDecisionScreen();if(state.screen==='gameover')body=gameover();app.innerHTML=(state.screen==='home'||state.screen==='tutorial'?header():'')+body+(state.screen==='home'||state.screen==='tutorial'?`<footer class="footer">タクティクスじゃんけん v${VERSION} · この端末だけで遊べます · 対戦中の情報はブラウザ内で管理</footer>`:'');}
+function render(){let body='';if(state.screen==='home')body=home();if(state.screen==='practice-settings')body=practiceSettings();if(state.screen==='tutorial')body=tutorial();if(state.screen==='handoff')body=handoff();if(state.screen==='ready')body=ready();if(state.screen==='setup')body=setup();if(state.screen==='choose')body=choose();if(state.screen==='auto-janken')body=autoJankenScreen();if(state.screen==='janken')body=jankenScreen();if(state.screen==='result')body=resultScreen();if(state.screen==='hand-decision')body=handDecisionScreen();if(state.screen==='gameover')body=gameover();app.innerHTML=(state.screen==='home'||state.screen==='tutorial'?header():'')+body+(state.screen==='home'||state.screen==='tutorial'?`<footer class="footer">タクティクスじゃんけん v${VERSION} · この端末だけで遊べます · 対戦中の情報はブラウザ内で管理</footer>`:'')+(!['home','tutorial','practice-settings'].includes(state.screen)?musicControl():'');syncStrategyBgm();}
 function svgBoard(){return `<svg viewBox="0 0 300 150" role="img" aria-label="3行3列の数字と、攻撃が縦、防御が横で決まる説明図"><defs><linearGradient id="br" x1="0" x2="1"><stop stop-color="#2e5585"/><stop offset="1" stop-color="#684b90"/></linearGradient></defs><g transform="translate(75 20)">${[8,2,5,4,9,1,7,3,6].map((x,i)=>`<rect x="${(i%3)*57}" y="${Math.floor(i/3)*35}" width="49" height="29" rx="7" fill="url(#br)" stroke="#9db5e7"/><text x="${(i%3)*57+24}" y="${Math.floor(i/3)*35+21}" text-anchor="middle" fill="white" font-weight="bold" font-size="20">${x}</text>`).join('')}</g><text x="100" y="13" fill="#ffcf99" font-size="12">攻撃（縦）↓</text><text x="3" y="76" fill="#aadaff" font-size="12">防御 →</text><text x="125" y="146" fill="#b9d5f6" font-size="12">数字の配置で強さが変わる</text></svg>`;}
 function svgRps(){return `<svg viewBox="0 0 300 150" role="img" aria-label="グー、チョキ、パーで勝敗を決めてHPを減らす説明図"><circle cx="60" cy="65" r="40" fill="#365d94" stroke="#8db9fa"/><circle cx="150" cy="65" r="40" fill="#77508e" stroke="#caa3fa"/><circle cx="240" cy="65" r="40" fill="#805345" stroke="#ffb39c"/><text x="60" y="77" text-anchor="middle" font-size="41">✊</text><text x="150" y="77" text-anchor="middle" font-size="41">✌️</text><text x="240" y="77" text-anchor="middle" font-size="41">✋</text><path d="M 88 35 Q 150 -4 212 35" stroke="#ffdf84" stroke-width="3" fill="none" stroke-dasharray="5 5"/><text x="150" y="17" fill="#ffdf84" text-anchor="middle" font-size="13">読み合い！</text><text x="150" y="135" fill="#c6def9" text-anchor="middle" font-size="13">手ごとにHPがある</text></svg>`;}
 function svgPass(){return `<svg viewBox="0 0 300 150" role="img" aria-label="自分の手札を隠して次のプレイヤーにPCを渡す説明図"><rect x="95" y="18" width="110" height="70" rx="9" fill="#1a314e" stroke="#9ecbff" stroke-width="4"/><path d="M 115 70 L 155 40 L 187 70" stroke="#f2cb7a" stroke-width="5" fill="none"/><circle cx="155" cy="37" r="9" fill="#f2cb7a"/><rect x="146" y="88" width="8" height="16" fill="#719bda"/><rect x="123" y="104" width="54" height="7" rx="3" fill="#719bda"/><circle cx="45" cy="54" r="17" fill="#7caff5"/><path d="M 17 105 Q 45 55 73 105" fill="#4371ac"/><circle cx="255" cy="54" r="17" fill="#dba4b8"/><path d="M 227 105 Q 255 55 283 105" fill="#895579"/><path d="M 78 127 H 220" stroke="#eacb82" stroke-width="3"/><path d="M 209 119 L 221 127 L 209 135" stroke="#eacb82" stroke-width="3" fill="none"/></svg>`;}
 function home(){let hpOpts=[100,200,300,400].map(v=>`<button class="pill ${state.hpMax===v?'active':''}" data-hp="${v}">${v} HP</button>`).join(''); let nOpts=[2,3,4].map(v=>`<button class="pill ${state.n===v?'active':''}" data-count="${v}">${v}人</button>`).join('');let fields=Array.from({length:state.n},(_,i)=>`<label class="field">プレイヤー${i+1}の名前 <input class="txt" data-player-name="${i}" maxlength="16" placeholder="プレイヤー${i+1}" value="${esc(state.names[i])}" autocomplete="off"></label>`).join('');return `
 <section class="hero"><div class="hero-copy"><div class="eyebrow">TACTICS JANKEN</div><h1>数字を配置して、<br><span>じゃんけんで勝負！</span></h1><p>9枚の数字で、グー・チョキ・パーの攻撃力と防御力をつくろう。<br class="hero-desktop-break">3つの手を使い切り、最後まで生き残れ！</p></div><div class="hero-visual" aria-hidden="true"><div class="hero-mini-hands"><span>✊</span><span>✌️</span><span>✋</span></div><div class="hero-mini-grid">${[8,2,5,4,9,1,7,3,6].map(n=>`<span>${n}</span>`).join('')}</div><div class="hero-mini-caption">数字の配置 × 読み合い</div></div></section>
-<section class="panel section"><div class="section-title"><span class="dot"></span><h2 style="margin:0">対戦をはじめる</h2></div><div class="grid2"><div class="stack"><div><div class="label" style="margin-bottom:9px">対戦人数</div><div class="pill-row">${nOpts}</div></div><div><div class="label" style="margin-bottom:9px">各手の初期HP</div><div class="pill-row">${hpOpts}</div><p class="note" style="margin:7px 0 0">100はクイック対戦、200は標準、300・400は長期戦におすすめ。</p></div><div><div class="label" style="margin-bottom:9px">対戦ルール</div><div class="pill-row rule-mode-row"><button type="button" class="pill ${state.ruleMode==='normal'?'active':''}" data-rule-mode="normal" aria-pressed="${state.ruleMode==='normal'}">通常ルールのみ</button><button type="button" class="pill ${state.ruleMode==='special'?'active':''}" data-rule-mode="special" aria-pressed="${state.ruleMode==='special'}">特殊ルールあり</button></div><p class="note" style="margin:7px 0 0">${state.ruleMode==='normal'?'毎ラウンド「通常バトル」のみで対戦します。':'毎ラウンド、通常を含む6種類からランダムで選ばれます。'}</p></div><div class="callout">🔒 手札・配置・じゃんけんの選択は、本人だけが確認する方式です。プレイヤー交代のたびに画面を隠します。</div></div><div class="stack"><div><div class="label" style="margin-bottom:9px">プレイヤー名</div><div class="name-grid">${fields}</div></div><button class="btn gold large wide" data-action="start">⚔ ${state.n}人で対戦スタート</button><button class="btn primary wide" data-action="tutorial">📘 はじめての方へ：チュートリアル</button><button class="btn soft large wide practice-entry" data-action="practice-open">🤖 一人で練習</button></div></div></section>
+<section class="panel section"><div class="section-title"><span class="dot"></span><h2 style="margin:0">対戦をはじめる</h2></div><div class="grid2"><div class="stack"><div><div class="label" style="margin-bottom:9px">対戦人数</div><div class="pill-row">${nOpts}</div></div><div><div class="label" style="margin-bottom:9px">各手の初期HP</div><div class="pill-row">${hpOpts}</div><p class="note" style="margin:7px 0 0">100はクイック対戦、200は標準、300・400は長期戦におすすめ。</p></div><div><div class="label" style="margin-bottom:9px">対戦ルール</div><div class="pill-row rule-mode-row"><button type="button" class="pill ${state.ruleMode==='normal'?'active':''}" data-rule-mode="normal" aria-pressed="${state.ruleMode==='normal'}">通常ルールのみ</button><button type="button" class="pill ${state.ruleMode==='special'?'active':''}" data-rule-mode="special" aria-pressed="${state.ruleMode==='special'}">特殊ルールあり</button></div><p class="note" style="margin:7px 0 0">${state.ruleMode==='normal'?'毎ラウンド「通常バトル」のみで対戦します。':'毎ラウンド、通常を含む6種類からランダムで選ばれます。'}</p></div>${musicConfig()}<div class="callout">🔒 手札・配置・じゃんけんの選択は、本人だけが確認する方式です。プレイヤー交代のたびに画面を隠します。</div></div><div class="stack"><div><div class="label" style="margin-bottom:9px">プレイヤー名</div><div class="name-grid">${fields}</div></div><button class="btn gold large wide" data-action="start">⚔ ${state.n}人で対戦スタート</button><button class="btn primary wide" data-action="tutorial">📘 はじめての方へ：チュートリアル</button><button class="btn soft large wide practice-entry" data-action="practice-open">🤖 一人で練習</button></div></div></section>
 `;}
 function practiceSettings(){
  const hpOpts=[100,200,300,400].map(v=>`<button class="pill ${state.practiceHp===v?'active':''}" data-practice-hp="${v}" aria-pressed="${state.practiceHp===v}">${v} HP</button>`).join('');
  const cpuOpts=[['easy','やさしい','気軽に練習'],['normal','ふつう','配置と手を考える'],['hard','つよい','読み合いを重視']].map(([id,name,desc])=>`<button class="practice-difficulty ${state.cpuDifficulty===id?'active':''}" data-cpu-difficulty="${id}" aria-pressed="${state.cpuDifficulty===id}"><strong>${name}</strong><span>${desc}</span></button>`).join('');
- return `<section class="panel practice-settings"><div class="flex" style="justify-content:space-between;align-items:center"><div><div class="eyebrow">SOLO PRACTICE</div><h1 class="practice-title">🤖 一人で練習</h1></div><button class="btn soft" data-action="home">← トップへ戻る</button></div><p>CPUと1対1で練習できます。数字の配置やじゃんけんの駆け引きは対人戦と同じです。</p><div class="practice-config"><div class="stack"><label class="field">自分の名前<input class="txt" maxlength="16" placeholder="プレイヤー1" data-practice-name value="${esc(state.practiceName)}" autocomplete="off"></label><div><div class="label" style="margin-bottom:9px">各手の初期HP</div><div class="pill-row">${hpOpts}</div></div><div><div class="label" style="margin-bottom:9px">対戦ルール</div><div class="pill-row"><button class="pill ${state.practiceRuleMode==='normal'?'active':''}" data-practice-rule="normal" aria-pressed="${state.practiceRuleMode==='normal'}">通常ルールのみ</button><button class="pill ${state.practiceRuleMode==='special'?'active':''}" data-practice-rule="special" aria-pressed="${state.practiceRuleMode==='special'}">特殊ルールあり</button></div></div></div><div class="stack"><div><div class="label" style="margin-bottom:9px">CPUの強さ</div><div class="practice-difficulties">${cpuOpts}</div></div></div></div><button class="btn gold large wide" style="margin-top:20px" data-action="practice-start">⚔ CPUと練習スタート</button></section>`;
+ return `<section class="panel practice-settings"><div class="flex" style="justify-content:space-between;align-items:center"><div><div class="eyebrow">SOLO PRACTICE</div><h1 class="practice-title">🤖 一人で練習</h1></div><button class="btn soft" data-action="home">← トップへ戻る</button></div><p>CPUと1対1で練習できます。数字の配置やじゃんけんの駆け引きは対人戦と同じです。</p><div class="practice-config"><div class="stack"><label class="field">自分の名前<input class="txt" maxlength="16" placeholder="プレイヤー1" data-practice-name value="${esc(state.practiceName)}" autocomplete="off"></label><div><div class="label" style="margin-bottom:9px">各手の初期HP</div><div class="pill-row">${hpOpts}</div></div><div><div class="label" style="margin-bottom:9px">対戦ルール</div><div class="pill-row"><button class="pill ${state.practiceRuleMode==='normal'?'active':''}" data-practice-rule="normal" aria-pressed="${state.practiceRuleMode==='normal'}">通常ルールのみ</button><button class="pill ${state.practiceRuleMode==='special'?'active':''}" data-practice-rule="special" aria-pressed="${state.practiceRuleMode==='special'}">特殊ルールあり</button></div></div></div><div class="stack"><div><div class="label" style="margin-bottom:9px">CPUの強さ</div><div class="practice-difficulties">${cpuOpts}</div></div></div></div><div style="margin-top:18px">${musicConfig()}</div><button class="btn gold large wide" style="margin-top:20px" data-action="practice-start">⚔ CPUと練習スタート</button></section>`;
 }
 function pStatus(){return '';}
 function hpBars(p){return `<div class="player-hps">${HANDS.map((h,i)=>{let hp=p.hp[i],pc=Math.max(0,hp/state.hpMax*100);return `<div class="hpbox ${hp===0?'dead':hp/state.hpMax<=.3?'low':''}"><div class="hp-top"><span>${h.emoji} ${h.label}</span><b>${hp}/${state.hpMax}</b></div><div class="hp-track"><div class="hp-fill" style="width:${pc}%"></div></div></div>`;}).join('')}</div>`;}
@@ -540,6 +600,9 @@ app.addEventListener('click',ev=>{const hit=ev.target.closest('button');if(!hit|
   if(hit.dataset.practiceHp){state.practiceHp=Number(hit.dataset.practiceHp);render();return;}
   if(hit.dataset.practiceRule){state.practiceRuleMode=hit.dataset.practiceRule;render();return;}
   if(hit.dataset.cpuDifficulty){state.cpuDifficulty=hit.dataset.cpuDifficulty;render();return;}
+ if(hit.dataset.action==='bgm-toggle'){state.bgmOn=!state.bgmOn;render();return;}
+ if(hit.dataset.action==='bgm-on'){state.bgmOn=true;render();return;}
+ if(hit.dataset.action==='bgm-off'){state.bgmOn=false;render();return;}
  if(hit.dataset.count){state.n=Number(hit.dataset.count);render();return;}
  if(hit.dataset.ruleMode){state.ruleMode=hit.dataset.ruleMode;render();return;}
  if(hit.dataset.slot!==undefined){if(state.screen==='setup'||state.screen==='tutorial'&&state.tutorialStep===1)changeCell(Number(hit.dataset.slot));return;}
