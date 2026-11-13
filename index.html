@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>タクティクスじゃんけん v0.1.13</title>
+<title>タクティクスじゃんけん v0.1.14</title>
 <style>
 :root{color-scheme:dark;--bg:#0b1020;--panel:#17223b;--panel2:#1d2b49;--line:#354667;--ink:#f3f7ff;--muted:#b5c3df;--gold:#f7c96f;--blue:#74b8ff;--red:#ff8b8d;--green:#72d6ad;--purple:#c7a1ff;--shadow:0 12px 40px #02081770}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:"Segoe UI","Yu Gothic UI","Meiryo",sans-serif;background:radial-gradient(ellipse at 50% -10%,#2b3f75 0,transparent 48%),radial-gradient(ellipse at 100% 65%,#282255 0,transparent 40%),#0b1020;color:var(--ink);line-height:1.55}
@@ -208,14 +208,11 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 /* Numeric strength: card quality, independent from how the nine cards are arranged. */
 .deck-strength{margin:0 0 13px;padding:12px 13px;background:linear-gradient(125deg,#26375a,#1b2b49);border:1px solid #59739c;border-radius:13px}
 .deck-strength-head{font-size:.85rem;font-weight:850;color:#c8d9f3;margin-bottom:8px}
-.deck-strength-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.deck-strength-values{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
 .deck-strength-value{background:#101f37;border:1px solid #405676;border-radius:10px;padding:9px 7px;text-align:center}
 .deck-strength-label{display:block;font-size:.73rem;color:#bdcde7;font-weight:750}
 .deck-strength-number{font-size:clamp(1.24rem,2.6vw,1.72rem);line-height:1.28;color:#ffe2a2;font-weight:950;font-variant-numeric:tabular-nums}
 .deck-strength-basis{font-size:.72rem;color:#b5c4e0}
-.deck-strength-track{position:relative;height:8px;margin-top:11px;background:#33425d;border-radius:100px;overflow:hidden}
-.deck-strength-fill{height:100%;background:linear-gradient(90deg,#65aee4,#f4ca71);border-radius:100px}
-.deck-strength-baseline{position:absolute;top:0;bottom:0;left:50%;width:2px;background:#f3f5fa;opacity:.9}
 .deck-strength-note{font-size:.76rem;color:#bacbe5;margin-top:9px;line-height:1.5}
 @media(max-width:600px){.deck-strength{padding:11px 10px}.deck-strength-number{font-size:1.37rem}.deck-strength-note{font-size:.72rem}}
 </style>
@@ -223,7 +220,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 <body><main id="app" class="wrap"></main>
 <script>
 'use strict';
-const VERSION='0.1.13';
+const VERSION='0.1.14';
 const HANDS=[{label:'グー',emoji:'✊'},{label:'チョキ',emoji:'✌️'},{label:'パー',emoji:'✋'}];
 const RULES=[
  {id:'normal',name:'通常バトル',short:'通常',desc:'すべての数字をそのまま掛け算します。'},
@@ -235,7 +232,7 @@ const RULES=[
 ];
 const TUTORIAL_TITLES=['勝負の目的','数字の配置を体験','攻撃と防御を配分する','3つの手を使い分ける','じゃんけんとHP','相手の残り手を読む','あえて負ける作戦','特殊ルールとカード交換','秘密の画面で交代'];
 const app=document.querySelector('#app');
-const state={screen:'home',n:2,ruleMode:'special',hpMax:200,names:['','','',''],players:[],round:0,rule:null,drawPile:[],setupIds:[],setupIndex:0,choiceIds:[],choiceIndex:0,firstClashPending:false,currentId:0,nextStage:'setup',clash:0,clashCap:3,selection:null,selectedDraw:[],mode:'move',handSelection:null,predictionDraft:{},soundOn:false,revealAnimating:false,revealTimeout:null,result:null,lastStage:'',tutorialStep:0,tutorialBoard:[9,2,3,4,5,6,7,8,1],tutorialSelection:null,tutorialTactic:null,handDecision:null};
+const state={screen:'home',n:2,ruleMode:'normal',hpMax:100,names:['','','',''],players:[],round:0,rule:null,drawPile:[],setupIds:[],setupIndex:0,choiceIds:[],choiceIndex:0,firstClashPending:false,currentId:0,nextStage:'setup',clash:0,clashCap:3,selection:null,selectedDraw:[],mode:'move',handSelection:null,predictionDraft:{},soundOn:false,revealAnimating:false,revealTimeout:null,result:null,lastStage:'',tutorialStep:0,tutorialBoard:[9,2,3,4,5,6,7,8,1],tutorialSelection:null,tutorialTactic:null,handDecision:null};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const R=()=>Math.random();
 function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -294,16 +291,11 @@ function expectedTripleProduct(cards){
  return sum/count;
 }
 function cardStrengthHtml(board,rule){
- const mean=board.reduce((total,n)=>total+n,0)/board.length;
  const zeroAwakening=rule?.id==='zero';
  const factorCards=board.map(n=>zeroAwakening&&n===0?10:n);
  const triple=expectedTripleProduct(factorCards);
- const referenceDeck=Array.from({length:40},(_,i)=>Math.floor(i/4));
- const referenceTriple=expectedTripleProduct(referenceDeck.map(n=>zeroAwakening&&n===0?10:n));
  const z=board.filter(n=>n===0).length;
- const baseline=4.5;
- const meanLabel=mean>baseline+0.15?'数字は高め':mean<baseline-0.15?'数字は低め':'平均的な数字';
- return `<div class="deck-strength" aria-label="自分の9枚のカードの数字の評価"><div class="deck-strength-head">📊 9枚の数字の強さ（配置前の目安）</div><div class="deck-strength-values"><div class="deck-strength-value"><span class="deck-strength-label">9枚の平均値</span><div class="deck-strength-number">${mean.toFixed(1)} <span class="deck-strength-basis">/ 9</span></div><span class="deck-strength-basis">全カード平均 4.5</span></div><div class="deck-strength-value"><span class="deck-strength-label">3枚の積の平均値</span><div class="deck-strength-number">${triple.toFixed(1)}</div><span class="deck-strength-basis">全カード基準 ${referenceTriple.toFixed(1)}</span></div></div><div class="deck-strength-track" role="meter" aria-valuemin="0" aria-valuemax="9" aria-valuenow="${mean.toFixed(1)}" aria-label="9枚の数字の平均値 ${mean.toFixed(1)}、基準4.5"><div class="deck-strength-fill" style="width:${(mean/9*100).toFixed(1)}%"></div><div class="deck-strength-baseline"></div></div><div class="deck-strength-note">${meanLabel}。3枚の積は9枚から3枚を選ぶ全84通りの掛け算の平均です。${z?zeroAwakening?`今回は0の覚醒なので、積では0を10として計算（0が${z}枚）。`:`0が${z}枚あり、0を含む掛け算は0になります。`:''}実際の攻防は配置や特殊ルールで変わります。</div></div>`;
+ return `<div class="deck-strength" aria-label="自分の9枚のカードの3枚の積の平均 ${Math.round(triple)}"><div class="deck-strength-head">📊 9枚の数字の強さ（配置前の目安）</div><div class="deck-strength-values"><div class="deck-strength-value"><span class="deck-strength-label">3枚の積の平均</span><div class="deck-strength-number">${Math.round(triple)}</div></div></div><div class="deck-strength-note">9枚から3枚を選ぶ全84通りの積の平均です。${z?zeroAwakening?`今回は0の覚醒なので、0を10として計算します（0が${z}枚）。`:`0が${z}枚あり、0を含む積は0になります。`:''}実際の攻撃・防御は配置や特殊ルールで変わります。</div></div>`;
 }
 function boardHtml(board,opts={}){let s=stat(board,opts.rule||state.rule);let actionable=opts.interactive||false;return `<div class="boardbox"><div class="battleboard"><div></div>${HANDS.map(h=>`<div class="boardlabel atk"><span class="icon">${h.emoji}</span><span>攻撃↓</span></div>`).join('')}${board.map((n,i)=>{let lbl=i%3===0?`<div class="boardlabel def"><span class="icon">${HANDS[Math.floor(i/3)].emoji}</span><span>防御→</span></div>`:'';let selected=opts.selected===i?' selected':'';let redraw=opts.drawSelected?.includes(i)?' redraw':'';let css=`${n%2===0?'even':''}${n===0?' zero':''}${selected}${redraw}`;return lbl+`<button ${actionable?'': 'disabled'} class="cell ${actionable?'clickable':''} ${css}" data-slot="${i}" aria-label="${Math.floor(i/3)+1}行${i%3+1}列 ${n}${opts.drawSelected?.includes(i)?'交換指定':''}">${n}<span class="corner">${n===0?'✦':n%2===0?'偶':'奇'}</span></button>`;}).join('')}</div><div class="line"></div><div class="statgrid">${HANDS.map((h,i)=>`<div class="stat"><div class="hand">${h.emoji}</div><strong>${h.label}</strong>${opts.player?miniHp(opts.player,i):''}<div class="pair"><span>攻撃 ${s.atk[i]}</span><span>防御 ${s.def[i]}</span></div></div>`).join('')}</div></div>`;}
 function handoffTo(id,stage){state.currentId=id;state.nextStage=stage;state.screen='handoff';state.selection=null;state.handSelection=null;state.predictionDraft={};state.selectedDraw=[];state.mode='move';render();}
